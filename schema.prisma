@@ -1,0 +1,65 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  user_id             Int            @id @default(autoincrement())
+  name                String
+  email               String         @unique
+  phone               String?
+  created_at          DateTime       @default(now())
+  groups              Group[]        @relation("GroupMembers")
+  expenses            Expense[]      @relation("PaidBy")
+  splits              ExpenseSplit[]
+  settlementsPaid     Settlement[]   @relation("SettlementsPaid")
+  settlementsReceived Settlement[]   @relation("SettlementsReceived")
+}
+
+model Group {
+  group_id    Int          @id @default(autoincrement())
+  name        String
+  description String?
+  created_by  Int?
+  created_at  DateTime     @default(now())
+  members     User[]       @relation("GroupMembers")
+  expenses    Expense[]
+  settlements Settlement[]
+}
+
+model Expense {
+  expense_id  Int            @id @default(autoincrement())
+  group_id    Int?
+  paid_by     Int?
+  description String?
+  amount      Decimal        @db.Decimal(10, 2)
+  created_at  DateTime       @default(now())
+  group       Group?         @relation(fields: [group_id], references: [group_id])
+  payer       User?          @relation("PaidBy", fields: [paid_by], references: [user_id])
+  splits      ExpenseSplit[]
+}
+
+model ExpenseSplit {
+  split_id   Int     @id @default(autoincrement())
+  expense_id Int
+  user_id    Int
+  share      Decimal @db.Decimal(10, 2)
+  expense    Expense @relation(fields: [expense_id], references: [expense_id])
+  user       User    @relation(fields: [user_id], references: [user_id])
+}
+
+model Settlement {
+  settlement_id Int      @id @default(autoincrement())
+  group_id      Int?
+  paid_by       Int?
+  paid_to       Int?
+  amount        Decimal  @db.Decimal(10, 2)
+  created_at    DateTime @default(now())
+  group         Group?   @relation(fields: [group_id], references: [group_id])
+  payer         User?    @relation("SettlementsPaid", fields: [paid_by], references: [user_id])
+  receiver      User?    @relation("SettlementsReceived", fields: [paid_to], references: [user_id])
+}
