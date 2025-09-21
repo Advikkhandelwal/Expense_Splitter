@@ -1,0 +1,8 @@
+.balances {
+  max-width: 800px;
+}
+
+.balances-list {
+  display: flex;
+  flex-direction: column;
+}
