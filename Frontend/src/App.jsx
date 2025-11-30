@@ -23,6 +23,8 @@ function App() {
     const root = document.documentElement;
     
     const applyTheme = () => {
+      if (!theme) return;
+      
       if (theme === 'dark') {
         root.classList.add('dark');
       } else if (theme === 'light') {
@@ -39,13 +41,39 @@ function App() {
 
     applyTheme();
 
+    let mediaQuery = null;
+    let handleChange = null;
+    
     if (theme === 'auto') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => applyTheme();
+      mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      handleChange = () => applyTheme();
       mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
     }
+
+    return () => {
+      if (mediaQuery && handleChange) {
+        mediaQuery.removeEventListener('change', handleChange);
+      }
+    };
   }, [theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const initialTheme = localStorage.getItem('theme') || 'auto';
+    
+    if (initialTheme === 'dark') {
+      root.classList.add('dark');
+    } else if (initialTheme === 'light') {
+      root.classList.remove('dark');
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+  }, []);
 
   return (
     <Router>

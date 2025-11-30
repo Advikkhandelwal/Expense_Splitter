@@ -110,13 +110,13 @@ export default function Settings() {
     };
 
     const handleSettingsUpdate = async (updates) => {
+        if (updates.theme) {
+            setTheme(updates.theme);
+        }
+        
         try {
             const res = await axios.put(`${API_URL}/users/${user.user_id}/settings`, updates);
             setSettings(res.data);
-            
-            if (updates.theme) {
-                setTheme(updates.theme);
-            }
             
             setSuccess('Settings updated successfully!');
             setTimeout(() => setSuccess(''), 3000);
