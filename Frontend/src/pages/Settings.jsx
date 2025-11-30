@@ -7,7 +7,7 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function Settings() {
-    const { user, setUser } = useStore();
+    const { user, setUser, theme, setTheme } = useStore();
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState('');
@@ -29,7 +29,7 @@ export default function Settings() {
 
     // Settings state
     const [settings, setSettings] = useState({
-        theme: 'auto',
+        theme: theme || 'auto',
         language: 'en',
         currency: 'USD',
         timezone: 'UTC',
@@ -51,10 +51,17 @@ export default function Settings() {
         }
     }, [user]);
 
+    useEffect(() => {
+        setSettings(prev => ({ ...prev, theme }));
+    }, [theme]);
+
     const fetchSettings = async () => {
         try {
             const res = await axios.get(`${API_URL}/users/${user.user_id}/settings`);
             setSettings(res.data);
+            if (res.data.theme) {
+                setTheme(res.data.theme);
+            }
         } catch (err) {
             console.error('Failed to fetch settings', err);
         }
@@ -103,6 +110,10 @@ export default function Settings() {
     };
 
     const handleSettingsUpdate = async (updates) => {
+        if (updates.theme) {
+            setTheme(updates.theme);
+        }
+        
         try {
             const res = await axios.put(`${API_URL}/users/${user.user_id}/settings`, updates);
             setSettings(res.data);
