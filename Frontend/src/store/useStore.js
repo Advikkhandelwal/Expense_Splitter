@@ -23,6 +23,11 @@ const calculateBalances = (expenses) => {
   return bal;
 };
 
+const getInitialTheme = () => {
+  const stored = localStorage.getItem('theme');
+  return stored || 'auto';
+};
+
 export const useStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
   groups: [],
@@ -32,6 +37,7 @@ export const useStore = create((set, get) => ({
   notifications: [],
   loading: false,
   error: null,
+  theme: getInitialTheme(),
 
   setUser: (user) => {
     localStorage.setItem('user', JSON.stringify(user));
@@ -215,5 +221,10 @@ export const useStore = create((set, get) => ({
     set(state => ({
       notifications: state.notifications.map(n => ({ ...n, read: true }))
     }));
+  },
+
+  setTheme: (theme) => {
+    localStorage.setItem('theme', theme);
+    set({ theme });
   }
 }));
