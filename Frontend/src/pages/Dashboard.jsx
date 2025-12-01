@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { Card, Button } from '../components/ui';
 import { Plus, TrendingUp, TrendingDown, Clock, Users, DollarSign, ArrowRight } from 'lucide-react';
+import DebtDetailsModal from '../components/DebtDetailsModal';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -13,6 +14,10 @@ export default function Dashboard() {
   const [activity, setActivity] = useState([]);
   const [balances, setBalances] = useState({ youOwe: 0, youAreOwed: 0 });
   const [loadingActivity, setLoadingActivity] = useState(true);
+  const [debtsYouOwe, setDebtsYouOwe] = useState([]);
+  const [debtsYouAreOwed, setDebtsYouAreOwed] = useState([]);
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [debtModalType, setDebtModalType] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -36,32 +41,91 @@ export default function Dashboard() {
 
   const calculateBalances = async () => {
     try {
-      // Fetch all expenses where user is involved
-      const groupExpensesPromises = groups.map(g =>
-        axios.get(`${API_URL}/groups/${g.group_id}/expenses`)
-      );
+      // Fetch all groups with members and expenses
+      const groupDetailsPromises = groups.map(async (g) => {
+        const [expensesRes, groupRes] = await Promise.all([
+          axios.get(`${API_URL}/groups/${g.group_id}/expenses`),
+          axios.get(`${API_URL}/groups/${g.group_id}`)
+        ]);
+        return {
+          group: groupRes.data,
+          expenses: expensesRes.data
+        };
+      });
 
-      const allExpenses = (await Promise.all(groupExpensesPromises))
-        .flatMap(res => res.data);
+      const allGroupData = await Promise.all(groupDetailsPromises);
+
+      // Create a map to store debts per person
+      const youOweMap = {}; // { userId: { name, amount, groupName, count } }
+      const youAreOwedMap = {}; // { userId: { name, amount, groupName, count } }
 
       let totalOwed = 0;
       let totalOwing = 0;
 
-      allExpenses.forEach(expense => {
-        const userSplit = expense.splits?.find(s => s.user_id === user.user_id);
-        if (!userSplit) return;
+      allGroupData.forEach(({ group, expenses }) => {
+        // Create a map of user_id to user name for this group
+        const userMap = {};
+        group.members?.forEach(member => {
+          userMap[member.user_id] = member.user?.name || member.name || 'Unknown';
+        });
 
-        const splitAmount = parseFloat(userSplit.share);
+        expenses.forEach(expense => {
+          const userSplit = expense.splits?.find(s => s.user_id === user.user_id);
+          if (!userSplit) return;
 
-        if (expense.paid_by === user.user_id) {
-          // User paid, others owe them
-          totalOwed += parseFloat(expense.amount) - splitAmount;
-        } else {
-          // Someone else paid, user owes them
-          totalOwing += splitAmount;
-        }
+          const splitAmount = parseFloat(userSplit.share);
+          const expenseAmount = parseFloat(expense.amount);
+
+          if (expense.paid_by === user.user_id) {
+            // User paid, others owe them
+            const amountOwed = expenseAmount - splitAmount;
+            totalOwed += amountOwed;
+
+            // Track who owes the user
+            expense.splits.forEach(split => {
+              if (split.user_id !== user.user_id) {
+                const userId = split.user_id;
+                const userName = userMap[userId] || 'Unknown';
+                if (!youAreOwedMap[userId]) {
+                  youAreOwedMap[userId] = {
+                    name: userName,
+                    amount: 0,
+                    groupName: group.name,
+                    count: 0
+                  };
+                }
+                youAreOwedMap[userId].amount += parseFloat(split.share);
+                youAreOwedMap[userId].count += 1;
+              }
+            });
+          } else {
+            // Someone else paid, user owes them
+            totalOwing += splitAmount;
+
+            const payerId = expense.paid_by;
+            const payerName = userMap[payerId] || 'Unknown';
+            if (!youOweMap[payerId]) {
+              youOweMap[payerId] = {
+                name: payerName,
+                amount: 0,
+                groupName: group.name,
+                count: 0
+              };
+            }
+            youOweMap[payerId].amount += splitAmount;
+            youOweMap[payerId].count += 1;
+          }
+        });
       });
 
+      // Convert maps to arrays and sort by amount
+      const youOweList = Object.values(youOweMap)
+        .sort((a, b) => b.amount - a.amount);
+      const youAreOwedList = Object.values(youAreOwedMap)
+        .sort((a, b) => b.amount - a.amount);
+
+      setDebtsYouOwe(youOweList);
+      setDebtsYouAreOwed(youAreOwedList);
       setBalances({ youOwe: totalOwing, youAreOwed: totalOwed });
     } catch (err) {
       console.error('Failed to calculate balances', err);
@@ -95,7 +159,7 @@ export default function Dashboard() {
       {/* Header with Quick Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
           <p className="text-gray-500 dark:text-gray-400">Welcome back, {user?.name}!</p>
         </div>
         <div className="flex gap-3">
@@ -122,34 +186,56 @@ export default function Dashboard() {
 
       {/* Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6 bg-gradient-to-br from-red-50 to-orange-50 border-red-100 dark:from-red-900/20 dark:to-orange-900/20 dark:border-red-900/30">
+        <Card
+          className="p-6 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-100 dark:border-red-800/50 cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => {
+            setDebtModalType('owe');
+            setIsDebtModalOpen(true);
+          }}
+        >
           <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-              <TrendingDown className="text-red-600" size={24} />
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+              <TrendingDown className="text-red-600 dark:text-red-400" size={24} />
             </div>
-            <span className="text-sm font-medium text-red-600 bg-red-100 px-3 py-1 rounded-full">
+            <span className="text-sm font-medium text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-full">
               You Owe
             </span>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+          <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
             {formatCurrency(balances.youOwe)}
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-300">Total amount you owe to others</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Total amount you owe to others</p>
+          {debtsYouOwe.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+              Click to see details ({debtsYouOwe.length} {debtsYouOwe.length === 1 ? 'person' : 'people'})
+            </p>
+          )}
         </Card>
 
-        <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-green-100 dark:from-green-900/20 dark:to-emerald-900/20 dark:border-green-900/30">
+        <Card
+          className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-100 dark:border-green-800/50 cursor-pointer hover:shadow-lg transition-all"
+          onClick={() => {
+            setDebtModalType('owed');
+            setIsDebtModalOpen(true);
+          }}
+        >
           <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <TrendingUp className="text-green-600" size={24} />
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+              <TrendingUp className="text-green-600 dark:text-green-400" size={24} />
             </div>
-            <span className="text-sm font-medium text-green-600 bg-green-100 px-3 py-1 rounded-full">
+            <span className="text-sm font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full">
               You Are Owed
             </span>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+          <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
             {formatCurrency(balances.youAreOwed)}
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-300">Total amount others owe you</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Total amount others owe you</p>
+          {debtsYouAreOwed.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+              Click to see details ({debtsYouAreOwed.length} {debtsYouAreOwed.length === 1 ? 'person' : 'people'})
+            </p>
+          )}
         </Card>
       </div>
 
@@ -159,7 +245,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2">
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <Clock size={20} />
                 Recent Activity
               </h2>
@@ -168,7 +254,7 @@ export default function Dashboard() {
             {loadingActivity ? (
               <div className="space-y-3">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                  <div key={i} className="h-16 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
                 ))}
               </div>
             ) : activity.length === 0 ? (
@@ -181,20 +267,26 @@ export default function Dashboard() {
                 {activity.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.flow === 'out' ? 'bg-red-100' : 'bg-green-100'
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.flow === 'out'
+                        ? 'bg-red-100 dark:bg-red-900/30'
+                        : 'bg-green-100 dark:bg-green-900/30'
                       }`}>
                       <DollarSign size={20} className={
-                        item.flow === 'out' ? 'text-red-600' : 'text-green-600'
+                        item.flow === 'out'
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-600 dark:text-green-400'
                       } />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 dark:text-white truncate">{item.title}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.title}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{item.group} • {item.details}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`font-bold ${item.flow === 'out' ? 'text-red-600' : 'text-green-600'
+                      <p className={`font-bold ${item.flow === 'out'
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-green-600 dark:text-green-400'
                         }`}>
                         {item.flow === 'out' ? '-' : '+'}{formatCurrency(item.amount)}
                       </p>
@@ -211,7 +303,7 @@ export default function Dashboard() {
         <div>
           <Card className="p-6" id="groups-section">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <Users size={20} />
                 Your Groups
               </h2>
@@ -226,7 +318,7 @@ export default function Dashboard() {
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                  <div key={i} className="h-16 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
                 ))}
               </div>
             ) : groups.length === 0 ? (
@@ -247,13 +339,13 @@ export default function Dashboard() {
                   <div
                     key={group.group_id}
                     onClick={() => navigate(`/groups/${group.group_id}`)}
-                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer group"
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer group"
                   >
-                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center text-primary font-bold">
+                    <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 rounded-lg flex items-center justify-center text-primary dark:text-primary-light font-bold">
                       {group.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 dark:text-white truncate">{group.name}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{group.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {group.members?.length || 0} members
                       </p>
@@ -266,6 +358,15 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      {/* Debt Details Modal */}
+      <DebtDetailsModal
+        isOpen={isDebtModalOpen}
+        onClose={() => setIsDebtModalOpen(false)}
+        type={debtModalType}
+        debts={debtModalType === 'owe' ? debtsYouOwe : debtsYouAreOwed}
+        totalAmount={debtModalType === 'owe' ? balances.youOwe : balances.youAreOwed}
+      />
     </div>
   );
 }
