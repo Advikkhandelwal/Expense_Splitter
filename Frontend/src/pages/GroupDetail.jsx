@@ -28,11 +28,7 @@ export default function GroupDetail() {
 
   useEffect(() => {
     fetchGroup(id);
-    const interval = setInterval(() => {
-      fetchGroup(id);
-    }, 5000);
-
-    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (loading || !currentGroup) {
