@@ -40,6 +40,7 @@ export const login = async (req, res) => {
 
 export const signup = async (req, res) => {
   try {
+    console.log("req incoming...")
     const { password, ...rest } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -582,11 +583,11 @@ export const createExpense = async (req, res) => {
     description,
     splits: splits
       ? {
-          create: splits.map((s) => ({
-            user_id: Number(s.user_id),
-            share: Number(s.share),
-          })),
-        }
+        create: splits.map((s) => ({
+          user_id: Number(s.user_id),
+          share: Number(s.share),
+        })),
+      }
       : undefined,
   });
 
