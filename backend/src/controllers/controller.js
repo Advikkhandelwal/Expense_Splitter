@@ -609,6 +609,30 @@ export const getGroupExpenses = async (req, res) => {
   res.json(expenses);
 };
 
+export const updateExpense = async (req, res) => {
+  const id = Number(req.params.id);
+  const { amount, description, splits } = req.body;
+
+  try {
+    const expense = await Service.updateExpense(id, {
+      amount: amount ? Number(amount) : undefined,
+      description,
+      splits: splits ? {
+        deleteMany: {},
+        create: splits.map((s) => ({
+          user_id: Number(s.user_id),
+          share: Number(s.share),
+        })),
+      } : undefined,
+    });
+
+    res.json(expense);
+  } catch (error) {
+    console.error('Error updating expense:', error);
+    res.status(500).json({ error: "Failed to update expense" });
+  }
+};
+
 export const deleteExpense = async (req, res) => {
   const id = Number(req.params.id);
   try {

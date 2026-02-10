@@ -25,7 +25,7 @@ export default function Dashboard() {
     if (!userId) return;
     try {
       setLoadingActivity(true);
-      const res = await axios.get(`${API_URL} /users/${userId}/activity`);
+      const res = await axios.get(`${API_URL}/users/${userId}/activity`);
       setActivity(res.data.slice(0, 10)); // Show latest 10 activities
     } catch (err) {
       console.error('Failed to fetch activity', err);

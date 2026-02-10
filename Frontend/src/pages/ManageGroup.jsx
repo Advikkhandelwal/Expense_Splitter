@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function ManageGroup() {
   const { id } = useParams();
@@ -13,6 +14,7 @@ export default function ManageGroup() {
   const balances = useStore((state) => state.balances);
 
   const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [memberToRemove, setMemberToRemove] = useState(null);
 
   if (!currentGroup) {
     return (
@@ -37,8 +39,13 @@ export default function ManageGroup() {
       return;
     }
 
-    if (window.confirm('Are you sure you want to remove this member? This action cannot be undone.')) {
-      removeMember(userId);
+    setMemberToRemove(userId);
+  };
+
+  const confirmRemoveMember = () => {
+    if (memberToRemove) {
+      removeMember(memberToRemove);
+      setMemberToRemove(null);
     }
   };
 
@@ -125,6 +132,14 @@ export default function ManageGroup() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={!!memberToRemove}
+        onClose={() => setMemberToRemove(null)}
+        onConfirm={confirmRemoveMember}
+        title="Remove Member"
+        message="Are you sure you want to remove this member? This action cannot be undone."
+        confirmText="Remove"
+      />
     </div>
   );
 }

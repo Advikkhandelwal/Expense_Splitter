@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export default function SettlementModal({ isOpen, onClose, group }) {
   // Use selective selectors to prevent unnecessary re-renders
@@ -9,6 +10,7 @@ export default function SettlementModal({ isOpen, onClose, group }) {
   const [payer, setPayer] = useState('');
   const [receiver, setReceiver] = useState('');
   const [amount, setAmount] = useState('');
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   // Calculate debts to suggest settlements
   const debts = [];
@@ -29,14 +31,13 @@ export default function SettlementModal({ isOpen, onClose, group }) {
     }
   }, [isOpen]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!payer || !receiver || !amount) return;
+    setIsConfirmOpen(true);
+  };
 
-    if (!window.confirm(`Are you sure you want to record a payment of $${amount}?`)) {
-      return;
-    }
-
+  const handleConfirm = async () => {
     await recordSettlement({
       group_id: group.group_id,
       payer: parseInt(payer),
@@ -136,6 +137,15 @@ export default function SettlementModal({ isOpen, onClose, group }) {
           </div>
         </form>
       </div>
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirm}
+        title="Confirm Settlement"
+        message={`Are you sure you want to record a payment of $${amount}?`}
+        confirmText="Record"
+        variant="primary"
+      />
     </div>
   );
 }

@@ -189,6 +189,20 @@ const Service = {
       orderBy: { created_at: "desc" }
     }),
 
+  updateExpense: (id, data) =>
+    prisma.expense.update({
+      where: { expense_id: id },
+      data,
+      include: {
+        payer: { select: { user_id: true, name: true, email: true } },
+        splits: {
+          include: {
+            user: { select: { user_id: true, name: true, email: true } }
+          }
+        }
+      }
+    }),
+
   deleteExpense: (id) =>
     prisma.expense.delete({
       where: { expense_id: id }

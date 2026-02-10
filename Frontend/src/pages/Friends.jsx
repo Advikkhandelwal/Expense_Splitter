@@ -4,6 +4,7 @@ import { Card, Button, Input } from '../components/ui';
 import { UserPlus, Trash2, Mail, Search, Users, DollarSign } from 'lucide-react';
 import { friendService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export default function Friends() {
     // Use selective selectors to prevent unnecessary re-renders
@@ -19,6 +20,7 @@ export default function Friends() {
     const [searchTerm, setSearchTerm] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [friendToRemove, setFriendToRemove] = useState(null);
 
     // Memoize fetchFriends to prevent recreation on every render
     const fetchFriends = useCallback(async () => {
@@ -56,17 +58,22 @@ export default function Friends() {
         }
     }, [userId, newFriendEmail, fetchFriends]);
 
-    const handleRemoveFriend = useCallback(async (friendId) => {
-        if (!window.confirm('Are you sure you want to remove this friend?')) return;
+    const handleRemoveFriend = useCallback((friendIdOrFriend) => {
+        // friendIdOrFriend might be just ID or the friend object depending on where it's called
+        const id = typeof friendIdOrFriend === 'object' ? friendIdOrFriend.user_id : friendIdOrFriend;
+        setFriendToRemove(id);
+    }, []);
 
-        if (!userId) return;
+    const confirmRemoveFriend = useCallback(async () => {
+        if (!friendToRemove || !userId) return;
         try {
-            await friendService.remove(userId, friendId);
+            await friendService.remove(userId, friendToRemove);
+            setFriendToRemove(null);
             fetchFriends();
         } catch (err) {
             console.error("Failed to remove friend", err);
         }
-    }, [userId, fetchFriends]);
+    }, [userId, friendToRemove, fetchFriends]);
 
     const handleInvite = useCallback(async (e) => {
         e.preventDefault();
@@ -238,6 +245,14 @@ export default function Friends() {
                     </div>
                 </div>
             )}
+            <ConfirmDialog
+                isOpen={!!friendToRemove}
+                onClose={() => setFriendToRemove(null)}
+                onConfirm={confirmRemoveFriend}
+                title="Remove Friend"
+                message="Are you sure you want to remove this friend? This will not delete any shared expenses."
+                confirmText="Remove"
+            />
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+// Use environment variable for API URL, fallback to localhost for development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const api = axios.create({
@@ -44,6 +45,7 @@ export const groupService = {
 export const expenseService = {
   getByGroup: (groupId) => api.get(`/groups/${groupId}/expenses`),
   create: (data) => api.post('/expenses', data),
+  update: (id, data) => api.put(`/expenses/${id}`, data),
   delete: (id) => api.delete(`/expenses/${id}`),
 };
 

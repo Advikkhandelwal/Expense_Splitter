@@ -17,6 +17,7 @@ import {
   createExpense,
   getExpense,
   getGroupExpenses,
+  updateExpense,
   deleteExpense,
   createSettlement,
   userSettlements,
@@ -65,6 +66,7 @@ router.post("/friends/invite", sendFriendInvitationEmail);
 router.post("/expenses", createExpense);
 router.get("/expenses/:id", getExpense);
 router.get("/groups/:id/expenses", getGroupExpenses);
+router.put("/expenses/:id", updateExpense);
 router.delete("/expenses/:id", deleteExpense);
 
 // SETTLEMENTS

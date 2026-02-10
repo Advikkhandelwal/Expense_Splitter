@@ -17,6 +17,7 @@ import Friends from "./pages/Friends";
 import Settings from "./pages/Settings";
 import Groups from "./pages/Groups";
 import JoinGroup from "./pages/JoinGroup";
+import { ToastProvider } from "./components/Toast";
 import "./index.css";
 
 function ProtectedRoute({ children }) {
@@ -44,71 +45,73 @@ function App() {
   }, [theme, setTheme]);
 
   return (
-    <Router>
-      <ErrorBoundary>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/join-group/:id" element={<JoinGroup />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/groups"
-            element={
-              <ProtectedRoute>
-                <Groups />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/groups/:id"
-            element={
-              <ProtectedRoute>
-                <GroupDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/groups/:id/add-expense"
-            element={
-              <ProtectedRoute>
-                <AddExpense />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/groups/:id/manage"
-            element={
-              <ProtectedRoute>
-                <ManageGroup />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/friends"
-            element={
-              <ProtectedRoute>
-                <Friends />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </ErrorBoundary>
-    </Router>
+    <ToastProvider>
+      <Router>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/join-group/:id" element={<JoinGroup />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute>
+                  <Groups />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id"
+              element={
+                <ProtectedRoute>
+                  <GroupDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id/add-expense"
+              element={
+                <ProtectedRoute>
+                  <AddExpense />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/groups/:id/manage"
+              element={
+                <ProtectedRoute>
+                  <ManageGroup />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/friends"
+              element={
+                <ProtectedRoute>
+                  <Friends />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
+      </Router>
+    </ToastProvider>
   );
 }
 
