@@ -1,11 +1,11 @@
 import React from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -37,6 +37,15 @@ export default function Analytics({ expenses, members }) {
       .reduce((sum, e) => sum + parseFloat(e.amount), 0);
     return { date: new Date(date).toLocaleDateString('en-US', { weekday: 'short' }), amount: total };
   });
+
+  // 3. Spending by Category
+  const categories = [...new Set(expenses.map(e => e.category || 'Other'))];
+  const spendingByCategory = categories.map(cat => {
+    const total = expenses
+      .filter(e => !e.is_settlement && (e.category === cat || (!e.category && cat === 'Other')))
+      .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    return { name: cat, value: total };
+  }).filter(d => d.value > 0);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -81,13 +90,45 @@ export default function Analytics({ expenses, members }) {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="date" axisLine={false} tickLine={false} />
               <YAxis axisLine={false} tickLine={false} />
-              <Tooltip 
+              <Tooltip
                 cursor={{ fill: '#f3f4f6' }}
                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
               <Bar dataKey="amount" fill="#6366f1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </Card>
+      <Card className="p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-6 font-primary">Spending by Category</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={spendingByCategory}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {spendingByCategory.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {spendingByCategory.map((entry, index) => (
+            <div key={entry.name} className="flex items-center gap-2 text-sm">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+              <span className="text-gray-600">{entry.name}:</span>
+              <span className="font-semibold">${entry.value.toFixed(2)}</span>
+            </div>
+          ))}
         </div>
       </Card>
     </div>

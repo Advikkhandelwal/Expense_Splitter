@@ -61,6 +61,7 @@ model Group {
   group_id    Int           @id @default(autoincrement())
   name        String
   description String?
+  currency    String        @default("USD")
   created_by  Int
   created_at  DateTime      @default(now())
   expenses    Expense[]
@@ -81,15 +82,21 @@ model GroupMember {
 }
 
 model Expense {
-  expense_id  Int            @id @default(autoincrement())
-  group_id    Int?
-  paid_by     Int?
-  description String?
-  amount      Decimal        @db.Decimal(10, 2)
-  created_at  DateTime       @default(now())
-  group       Group?         @relation(fields: [group_id], references: [group_id])
-  payer       User?          @relation("PaidBy", fields: [paid_by], references: [user_id])
-  splits      ExpenseSplit[]
+  expense_id      Int            @id @default(autoincrement())
+  group_id        Int?
+  paid_by         Int?
+  description     String?
+  amount          Decimal        @db.Decimal(10, 2)
+  currency        String         @default("USD")
+  category        String         @default("Other")
+  is_recurring    Boolean        @default(false)
+  frequency       String?        // daily, weekly, monthly, yearly
+  next_occurrence DateTime?
+  is_settlement   Boolean        @default(false)
+  created_at      DateTime       @default(now())
+  group           Group?         @relation(fields: [group_id], references: [group_id])
+  payer           User?          @relation("PaidBy", fields: [paid_by], references: [user_id])
+  splits          ExpenseSplit[]
 
   @@index([group_id], map: "Expense_group_id_idx")
   @@index([paid_by], map: "Expense_paid_by_idx")
@@ -100,7 +107,7 @@ model ExpenseSplit {
   expense_id Int
   user_id    Int
   share      Decimal @db.Decimal(10, 2)
-  expense    Expense @relation(fields: [expense_id], references: [expense_id])
+  expense    Expense @relation(fields: [expense_id], references: [expense_id], onDelete: Cascade)
   user       User    @relation(fields: [user_id], references: [user_id])
 
   @@index([expense_id], map: "ExpenseSplit_expense_id_idx")

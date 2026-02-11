@@ -1,5 +1,6 @@
 import Service from "../services/services.js";
 import { sendGroupInvitation } from "../services/emailService.js";
+import { convertCurrency } from "../services/currencyService.js";
 import { OAuth2Client } from "google-auth-library";
 import dotenv from "dotenv";
 
@@ -574,13 +575,48 @@ export const joinGroupViaInvitation = async (req, res) => {
 
 // EXPENSES
 export const createExpense = async (req, res) => {
-  const { group_id, paid_by, amount, description, splits } = req.body;
+  const {
+    group_id,
+    paid_by,
+    amount,
+    description,
+    splits,
+    currency,
+    category,
+    is_recurring,
+    frequency,
+  } = req.body;
+
+  let next_occurrence = null;
+  if (is_recurring && frequency) {
+    const now = new Date();
+    if (frequency === "daily") now.setDate(now.getDate() + 1);
+    else if (frequency === "weekly") now.setDate(now.getDate() + 7);
+    else if (frequency === "monthly") now.setDate(now.getMonth() + 1);
+    else if (frequency === "yearly") now.setFullYear(now.getFullYear() + 1);
+    next_occurrence = now;
+  }
+
+  console.log("Creating expense with data:", {
+    group_id,
+    paid_by,
+    amount,
+    currency,
+    category,
+    is_recurring,
+    frequency,
+  });
 
   const expense = await Service.createExpense({
     group_id: group_id ? Number(group_id) : null,
     paid_by: Number(paid_by),
     amount: Number(amount),
     description,
+    currency: currency || "USD",
+    category: category || "Other",
+    is_recurring: !!is_recurring,
+    frequency: frequency || null,
+    next_occurrence,
     splits: splits
       ? {
         create: splits.map((s) => ({

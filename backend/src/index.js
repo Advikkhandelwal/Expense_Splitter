@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import prisma from "./prisma/client.js";
 import router from "./routes/routes.js";
+import { initCronJobs } from "./workers/cronWorker.js";
 
 dotenv.config();
 
@@ -26,6 +27,9 @@ prisma
   .$connect()
   .then(() => {
     console.log("Prisma connected");
+
+    // Initialize Recurring Expenses Worker
+    initCronJobs();
 
     const PORT = process.env.PORT || 3001;
 

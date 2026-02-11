@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { Card, Button, Input } from '../components/ui';
-import { ArrowLeft, DollarSign, Users } from 'lucide-react';
+import { ArrowLeft, DollarSign, Users, Calendar, Tag, Globe, Repeat } from 'lucide-react';
 import { friendService } from '../services/api';
 
 export default function AddExpense() {
@@ -27,6 +27,14 @@ export default function AddExpense() {
   const [shares, setShares] = useState({});
   const [percentages, setPercentages] = useState({});
   const [members, setMembers] = useState([]);
+
+  // New states for advanced features
+  const availableCurrencies = useStore((state) => state.availableCurrencies);
+  const categoriesList = useStore((state) => state.categories);
+  const [currency, setCurrency] = useState('USD');
+  const [category, setCategory] = useState('Other');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState('monthly');
 
   useEffect(() => {
     const loadData = async () => {
@@ -159,11 +167,26 @@ export default function AddExpense() {
       }
     }
 
+    console.log("AddExpense.jsx: Submitting expense", {
+      group_id: id ? parseInt(id) : null,
+      description,
+      amount: parseFloat(amount),
+      currency,
+      category,
+      is_recurring: isRecurring,
+      frequency: isRecurring ? frequency : null,
+      paid_by: parseInt(paidBy),
+    });
+
     try {
       await addExpense({
         group_id: id ? parseInt(id) : null,
         description,
         amount: parseFloat(amount),
+        currency,
+        category,
+        is_recurring: isRecurring,
+        frequency: isRecurring ? frequency : null,
         paid_by: parseInt(paidBy),
         split: splits
       });
@@ -205,7 +228,6 @@ export default function AddExpense() {
         className="mb-6 pl-0 hover:bg-transparent hover:text-primary"
         onClick={() => id ? navigate(`/groups/${id}`) : navigate('/friends')}
       >
-        <ArrowLeft size={20} className="mr-2" />
         Back to {id ? 'Group' : 'Friends'}
       </Button>
 
@@ -225,16 +247,56 @@ export default function AddExpense() {
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount</label>
             <div className="relative">
-              <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">
+                {useStore.getState().availableCurrencies && useStore.getState().availableCurrencies.includes(currency) ? (
+                  {
+                    USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'CA$', AUD: 'A$', JPY: '¥'
+                  }[currency] || '$'
+                ) : '$'}
+              </div>
               <input
                 type="number"
                 step="0.01"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-700 focus:border-primary focus:ring-4 focus:ring-primary-light/20 dark:focus:ring-primary/30 outline-none transition-all text-lg font-semibold"
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-700 focus:border-primary focus:ring-4 focus:ring-primary-light/20 dark:focus:ring-primary/30 outline-none transition-all text-lg font-semibold"
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
                 required
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <Globe size={16} className="text-gray-400" />
+                Currency
+              </label>
+              <select
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-700 focus:border-primary focus:ring-4 focus:ring-primary-light/20 dark:focus:ring-primary/30 outline-none transition-all appearance-none"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+              >
+                {availableCurrencies.map(curr => (
+                  <option key={curr} value={curr}>{curr}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <Tag size={16} className="text-gray-400" />
+                Category
+              </label>
+              <select
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-700 focus:border-primary focus:ring-4 focus:ring-primary-light/20 dark:focus:ring-primary/30 outline-none transition-all appearance-none"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                {categoriesList.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -251,6 +313,48 @@ export default function AddExpense() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm font-semibold text-indigo-900 dark:text-indigo-100 cursor-pointer">
+                <Repeat size={18} />
+                Recurring Expense
+                <input
+                  type="checkbox"
+                  className="hidden"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                />
+                <div className={`w-10 h-6 rounded-full transition-all relative ${isRecurring ? 'bg-primary' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isRecurring ? 'left-5' : 'left-1'}`} />
+                </div>
+              </label>
+              {isRecurring && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-bold">ACTIVE</span>
+              )}
+            </div>
+
+            {isRecurring && (
+              <div className="animate-fade-in space-y-2">
+                <p className="text-xs text-indigo-600 dark:text-indigo-400">How often should this repeat?</p>
+                <div className="flex gap-2">
+                  {['daily', 'weekly', 'monthly', 'yearly'].map(freq => (
+                    <button
+                      key={freq}
+                      type="button"
+                      onClick={() => setFrequency(freq)}
+                      className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-all capitalize ${frequency === freq
+                        ? 'bg-primary border-primary text-white'
+                        : 'bg-white border-gray-200 text-gray-600 hover:border-primary'
+                        }`}
+                    >
+                      {freq}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 pt-4 border-t border-gray-100">

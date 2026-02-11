@@ -1,12 +1,31 @@
 import { create } from 'zustand';
 import { authService, groupService, expenseService, settlementService } from '../services/api';
 
+// Hardcoded exchange rates for frontend balance calculation (can be fetched from API later)
+const EXCHANGE_RATES = {
+  USD: 1.0,
+  EUR: 0.92,
+  GBP: 0.79,
+  INR: 83.12,
+  CAD: 1.35,
+  AUD: 1.52,
+  JPY: 148.5,
+};
+
+const convertCurrency = (amount, from, to) => {
+  if (from === to || !EXCHANGE_RATES[from] || !EXCHANGE_RATES[to]) return amount;
+  return (amount / EXCHANGE_RATES[from]) * EXCHANGE_RATES[to];
+};
+
 // Helper to calculate balances from expenses
-const calculateBalances = (expenses) => {
+const calculateBalances = (expenses, groupCurrency = 'USD') => {
   const bal = {};
   expenses.forEach(exp => {
     const paidBy = exp.paid_by || exp.payer?.user_id;
-    const amount = parseFloat(exp.amount);
+    const expCurrency = exp.currency || 'USD';
+
+    // Convert amount to group's base currency for balance calculation
+    const amount = convertCurrency(parseFloat(exp.amount), expCurrency, groupCurrency);
 
     if (!bal[paidBy]) bal[paidBy] = 0;
     bal[paidBy] += amount;
@@ -14,7 +33,8 @@ const calculateBalances = (expenses) => {
     if (exp.splits) {
       exp.splits.forEach(split => {
         const userId = split.user_id || split.user?.user_id;
-        const share = parseFloat(split.share);
+        // Convert split share as well
+        const share = convertCurrency(parseFloat(split.share), expCurrency, groupCurrency);
         if (!bal[userId]) bal[userId] = 0;
         bal[userId] -= share;
       });
@@ -40,6 +60,8 @@ export const useStore = create((set, get) => ({
   notifications: [],
   loading: false,
   error: null,
+  availableCurrencies: ['USD', 'EUR', 'GBP', 'INR', 'CAD', 'AUD', 'JPY'],
+  categories: ['Food', 'Travel', 'Entertainment', 'Transport', 'Utilities', 'Shopping', 'Other'],
 
   setUser: (user) => {
     localStorage.setItem('user', JSON.stringify(user));
@@ -98,12 +120,12 @@ export const useStore = create((set, get) => ({
         }))
       ];
 
-      const balances = calculateBalances(combinedExpenses);
-
       const formattedExpenses = combinedExpenses.map(e => ({
         ...e,
         paid_by_name: groupData.members.find(m => m.user_id === (e.paid_by || e.payer?.user_id))?.user?.name || 'Unknown'
       })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      const balances = calculateBalances(formattedExpenses, groupData.currency || 'USD');
 
       set({
         currentGroup: groupData,
@@ -130,9 +152,14 @@ export const useStore = create((set, get) => ({
         paid_by: expenseData.paid_by,
         amount: expenseData.amount,
         description: expenseData.description,
+        currency: expenseData.currency || 'USD',
+        category: expenseData.category || 'Other',
+        is_recurring: expenseData.is_recurring || false,
+        frequency: expenseData.frequency || null,
         splits
       };
 
+      console.log("Adding expense with payload:", payload);
       await expenseService.create(payload);
 
       get().fetchGroup(expenseData.group_id);
